@@ -23,22 +23,24 @@ module MarketBot
         doc = Nokogiri::HTML(html)
         meta_info = doc.css('.meta-info')
         meta_info.each do |info|
-          field_name = info.css('.title').text.strip
+          field_name = info.css('.content').first.attribute('itemprop')
 
-          case field_name
-            when 'Updated'
+          next if field_name.nil?
+
+          case field_name.text.strip
+            when 'datePublished'
               result[:updated] = info.css('.content').text.strip
-            when 'Installs'
+            when 'numDownloads'
               result[:installs] = info.css('.content').text.strip
-            when 'Size'
+            when 'fileSize'
               result[:size] = info.css('.content').text.strip
-            when 'Current Version'
+            when 'softwareVersion'
               result[:current_version] = info.css('.content').text.strip
-            when 'Requires Android'
+            when 'operatingSystems'
               result[:requires_android] = info.css('.content').text.strip
-            when 'Content Rating'
+            when 'contentRating'
               result[:content_rating] = info.css('.content').text.strip
-            when 'Contact Developer', 'Developer'
+            when 'Contact Developer', 'Developer', ''
               info.css('.dev-link').each do |node|
                 node_href = node[:href]
                 if node_href =~ /^mailto:/
@@ -52,6 +54,20 @@ module MarketBot
                 end
               end
 
+          end
+        end
+
+        dev_links = doc.css('.meta-info .dev-link')
+        dev_links.each do |node|
+          node_href = node[:href]
+          if node_href =~ /^mailto:/
+            result[:email] = node_href.gsub(/^mailto:/,'')
+          else
+            if q_param = URI(node_href).query.split('&').select{ |p| p =~ /q=/ }.first
+              actual_url = q_param.gsub('q=', '')
+            end
+
+            result[:website_url] = actual_url
           end
         end
 
